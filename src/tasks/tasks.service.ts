@@ -15,6 +15,7 @@ export class TasksService {
     // Faire une route pour tester avant de passer sur la cron
     // Si pas de loterie opened, on créer, sinon
     // On créer un timestamp
+    // On update le status de la loterie en "distribution"
     // On boucle les participations, on ajoute dans un tableau tous les wallets par rapport à leurs nombres
     // Si 100 participations, le wallet est 100 fois dans le tableau
     // Shuffle le tableau

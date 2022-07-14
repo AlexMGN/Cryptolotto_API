@@ -13,7 +13,7 @@ export class AppController {
   // Route pour ajouter les participations
   // Attend le wallet: string, la loterie: string, le nombre de participations: number
   // la txid: string
-  // Vérifier que la loterie est bien "opened"
+  // Vérifier que la loterie est bien "opened" et non closed/distribution
   // Vérifie le status de la transaction
   // Push dans "participations" le wallet avec l'amount et la date (timestamp) + update global amount
   // Si utilisateur est déjà dans participations, modifier juste amount avec l'ancier + le nouveau
