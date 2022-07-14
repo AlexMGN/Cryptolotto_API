@@ -5,11 +5,11 @@ import { Cron } from '@nestjs/schedule';
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
-  @Cron('0 1 * * * *', {
+  @Cron('10 0 1 * * *', {
     name: 'create_lotteries',
     timeZone: 'Europe/Paris',
   })
   createLotteries() {
-    this.logger.debug('Il est 1h du matin');
+    this.logger.debug('Il est 1h10 du matin');
   }
 }
