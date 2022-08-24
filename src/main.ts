@@ -9,7 +9,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('PORT') || 8080;
+  const port = process.env.PORT || 8080;
   const host = configService.get<string>('HOST') || '127.0.0.1';
 
   await app.listen(port, host);
