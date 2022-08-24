@@ -5,12 +5,12 @@ import { Cron } from '@nestjs/schedule';
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
-  @Cron('0 0 2 * * *', {
+  /*@Cron('0 0 8 * * *', {
     name: 'create_lotteries',
     timeZone: 'Europe/Paris',
   })
   distributeAndCreateLotteries() {
-    this.logger.debug('Il est 2h du matin');
+    this.logger.debug('Distribution Time!');
 
     // Faire une route pour tester avant de passer sur la cron
     // Si pas de loterie opened, on créer, sinon
@@ -32,5 +32,5 @@ export class TasksService {
     // Récupération des PDA
     // Sauvegarder les PDA dans la table lotteries avec le status opened
     // Envoyer les PDA sur discord
-  }
+  }*/
 }

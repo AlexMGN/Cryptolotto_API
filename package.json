@@ -24,11 +24,22 @@
     "node": "16.13.0"
   },
   "dependencies": {
+    "@discord-nestjs/core": "^3.6.0",
     "@nestjs/common": "^8.0.0",
+    "@nestjs/config": "^2.2.0",
     "@nestjs/core": "^8.0.0",
+    "@nestjs/mongoose": "^9.2.0",
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/schedule": "^2.1.0",
+    "@project-serum/anchor": "^0.25.0",
+    "@solana/spl-token": "^0.2.0",
+    "@solana/web3.js": "^1.48.0",
     "@types/cron": "^2.0.0",
+    "bs58": "^5.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.13.2",
+    "discord.js": "^13.8.1",
+    "mongoose": "^6.4.4",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0"
