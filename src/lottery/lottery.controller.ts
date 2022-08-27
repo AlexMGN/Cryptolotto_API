@@ -6,17 +6,30 @@ import {
   Param,
 } from '@nestjs/common';
 import { LotteryService } from './lottery.service';
-import { Lottery } from '../models/mongo/lottery';
 
 @Controller('lottery')
 export class LotteryController {
   constructor(private readonly lotteryService: LotteryService) {}
 
+  /*@Get('/')
+  async test(@Param('slug') slug: string) {
+    return this.lotteryService.getHello();
+  }*/
+
+  @HttpCode(200)
+  @Get('/all')
+  async allLotteries() {
+    const lotteries = await this.lotteryService.findAllLotteries();
+
+    if (!lotteries)
+      throw new HttpException({ errors: ['Lotteries not found'] }, 404);
+    return lotteries;
+  }
+
   @HttpCode(200)
   @Get('/:slug')
   async details(@Param('slug') slug: string) {
-    //return this.lotteryService.getHello();
-    const lottery = await this.lotteryService.findLottery(slug);
+    const lottery = await this.lotteryService.findOpenedLottery(slug);
 
     if (!lottery)
       throw new HttpException({ errors: ['Lottery not found'] }, 404);
@@ -54,6 +67,10 @@ export class LotteryController {
     @Param('amount') amount: number,
     @Param('txid') txid: string,
   ) {
+    if (slug === 'medium') amount = amount / 2;
+    if (slug === 'degen') amount = amount / 5;
+    if (slug === 'whale') amount = amount / 10;
+
     const confirmed = await this.lotteryService.confirmParticipation(
       slug,
       wallet,
