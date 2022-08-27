@@ -6,6 +6,7 @@ import { TasksService } from './tasks/tasks.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LotterySchema, Lottery } from './models/mongo/lottery';
+import { TeamSchema, Team } from './models/mongo/team';
 import { DiscordModule } from '@discord-nestjs/core';
 import { Intents } from 'discord.js';
 
@@ -22,7 +23,10 @@ import { Intents } from 'discord.js';
       }),
       inject: [ConfigService],
     }),
-    MongooseModule.forFeature([{ name: Lottery.name, schema: LotterySchema }]),
+    MongooseModule.forFeature([
+      { name: Lottery.name, schema: LotterySchema },
+      { name: Team.name, schema: TeamSchema },
+    ]),
     DiscordModule.forRootAsync({
       useFactory: () => ({
         token: process.env.DISCORD_BOT_TOKEN,

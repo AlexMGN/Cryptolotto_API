@@ -2,15 +2,20 @@ import { Model } from 'mongoose';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { LotteryDocument, Lottery } from '../models/mongo/lottery';
-import { LotteryCreationType } from './lottery.type';
+import {
+  LotteryCreationType,
+  SaveMemberCreationType,
+} from './mongo.creation.type';
 import * as anchor from '@project-serum/anchor';
 import {
   Commitment,
   Connection,
   Keypair,
   PublicKey,
+  sendAndConfirmTransaction,
   SignatureStatus,
   Signer,
+  Transaction,
   TransactionSignature,
 } from '@solana/web3.js';
 import * as bs58 from 'bs58';
@@ -18,8 +23,13 @@ import { getAssociatedTokenAccount, getProgram, getPDA } from './config';
 import * as Discord from 'discord.js';
 import { InjectDiscordClient, Once } from '@discord-nestjs/core';
 import { TextChannel } from 'discord.js';
-import { Account, getOrCreateAssociatedTokenAccount } from '@solana/spl-token';
+import {
+  Account,
+  createTransferInstruction,
+  getOrCreateAssociatedTokenAccount,
+} from '@solana/spl-token';
 import { Wallet } from '@project-serum/anchor';
+import { TeamDocument, Team } from '../models/mongo/team';
 
 @Injectable()
 export class LotteryService {
@@ -27,6 +37,7 @@ export class LotteryService {
 
   constructor(
     @InjectModel(Lottery.name) private lotteryModel: Model<LotteryDocument>,
+    @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
     @InjectDiscordClient()
     private readonly client: Discord.Client,
   ) {}
@@ -37,7 +48,7 @@ export class LotteryService {
   }
 
   async getHello() {
-    // Création + Distribution
+    /*// Création + Distribution
     const creationTimestamp = new Date().getTime();
     const web3Timestamp = new anchor.BN(creationTimestamp);
     const bufferedTimestamp = web3Timestamp.toBuffer('be', 8);
@@ -166,7 +177,144 @@ export class LotteryService {
       }
     } catch (e) {
       console.log(e);
+    }*/
+    /*console.log('Distribution for the team in progress...');
+    const team_members = ['9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ'];
+    const connection = new Connection(process.env.RPC_ENDPOINT);
+    const savedTimestamp = new Date().getTime();
+
+    const teamWallet = Keypair.fromSecretKey(
+      new Uint8Array(bs58.decode(process.env.CRYPTOLOTTO_TEAM)),
+    );
+
+    const team_ATA = await getAssociatedTokenAccount(
+      connection,
+      teamWallet,
+      new PublicKey(process.env.TEAM_PUBLICKEY),
+    );
+
+    const team_USDC_balance = Number(team_ATA.amount) / 1e6;
+    let amount_for_treasury = (8 * team_USDC_balance) / 100;
+
+    for (const member of team_members) {
+      try {
+        const member_ATA = await getAssociatedTokenAccount(
+          connection,
+          teamWallet,
+          new PublicKey(member),
+        );
+
+        const amount_to_transfer =
+          team_USDC_balance - (8 * team_USDC_balance) / 100;
+        let amount_for_member = amount_to_transfer / team_members.length;
+
+        if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
+          amount_for_member = Number(
+            parseFloat(String(amount_for_member)).toPrecision(7),
+          );
+        }
+
+        const transferTrx = new Transaction().add(
+          createTransferInstruction(
+            team_ATA.address,
+            member_ATA.address,
+            teamWallet.publicKey,
+            amount_for_member * 1e6,
+          ),
+        );
+
+        const txid = await sendAndConfirmTransaction(
+          connection,
+          transferTrx,
+          [teamWallet],
+          { commitment: 'finalized' },
+        );
+
+        const saveMemberDistribution: SaveMemberCreationType = {
+          type: 'member',
+          wallet: member,
+          status: 'distributed',
+          amount_distributed: amount_for_member,
+          distribution_transaction_id: txid,
+          distribution_date: savedTimestamp,
+        };
+
+        const TeamDistribution = new this.teamModel(saveMemberDistribution);
+        TeamDistribution.save();
+      } catch (e) {
+        const saveMemberDistributionError: SaveMemberCreationType = {
+          type: 'member',
+          wallet: member,
+          status: 'error',
+          amount_distributed: 0,
+          distribution_transaction_id: 'No transaction',
+          distribution_date: savedTimestamp,
+          error_message: e.message,
+        };
+
+        const TeamDistribution = new this.teamModel(
+          saveMemberDistributionError,
+        );
+        TeamDistribution.save();
+      }
     }
+
+    try {
+      const treasury_ATA = await getAssociatedTokenAccount(
+        connection,
+        teamWallet,
+        new PublicKey(process.env.TREASURY_PUBLICKEY),
+      );
+
+      if (decimalCount(parseFloat(String(amount_for_treasury)) * 1e6) > 0) {
+        amount_for_treasury = Number(
+          parseFloat(String(amount_for_treasury)).toPrecision(7),
+        );
+      }
+
+      const transferTrx = new Transaction().add(
+        createTransferInstruction(
+          team_ATA.address,
+          treasury_ATA.address,
+          teamWallet.publicKey,
+          amount_for_treasury * 1e6,
+        ),
+      );
+
+      const txid = await sendAndConfirmTransaction(
+        connection,
+        transferTrx,
+        [teamWallet],
+        { commitment: 'finalized' },
+      );
+
+      const saveMemberDistribution: SaveMemberCreationType = {
+        type: 'treasury',
+        wallet: process.env.TREASURY_PUBLICKEY,
+        status: 'distributed',
+        amount_distributed: amount_for_treasury,
+        distribution_transaction_id: txid,
+        distribution_date: savedTimestamp,
+      };
+
+      const TeamDistribution = new this.teamModel(saveMemberDistribution);
+      TeamDistribution.save();
+      console.log('Distribution for the team finished...');
+    } catch (e) {
+      const saveMemberDistributionError: SaveMemberCreationType = {
+        type: 'treasury',
+        wallet: process.env.TREASURY_PUBLICKEY,
+        status: 'error',
+        amount_distributed: 0,
+        distribution_transaction_id: 'No transaction',
+        distribution_date: savedTimestamp,
+        error_message: e.message,
+      };
+
+      const TeamDistribution = new this.teamModel(saveMemberDistributionError);
+      TeamDistribution.save();
+    }*/
+    console.log(0*1e6)
   }
 
   async findAllLotteries(): Promise<LotteryDocument[] | null> {
@@ -672,4 +820,12 @@ const updateLotteryStatus = async (
       },
     )
     .exec();
+};
+
+const decimalCount = (number) => {
+  const numberAsString = number.toString();
+  if (numberAsString.includes('.')) {
+    return numberAsString.split('.')[1].length;
+  }
+  return 0;
 };

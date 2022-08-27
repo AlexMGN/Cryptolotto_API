@@ -9,8 +9,10 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  sendAndConfirmTransaction,
   SignatureStatus,
   Signer,
+  Transaction,
   TransactionSignature,
 } from '@solana/web3.js';
 import { InjectDiscordClient } from '@discord-nestjs/core';
@@ -23,8 +25,13 @@ import {
 } from '../lottery/config';
 import { Wallet } from '@project-serum/anchor';
 import { Account } from '@solana/spl-token';
-import { LotteryCreationType } from '../lottery/lottery.type';
+import {
+  LotteryCreationType,
+  SaveMemberCreationType,
+} from '../lottery/mongo.creation.type';
 import { TextChannel } from 'discord.js';
+import { createTransferInstruction } from '@solana/spl-token';
+import { TeamDocument, Team } from '../models/mongo/team';
 
 interface LotteryDiscordField {
   name: string;
@@ -37,6 +44,7 @@ export class TasksService {
 
   constructor(
     @InjectModel(Lottery.name) private lotteryModel: Model<LotteryDocument>,
+    @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
     @InjectDiscordClient()
     private readonly client: Discord.Client,
   ) {}
@@ -175,6 +183,154 @@ export class TasksService {
       }
     } catch (e) {
       console.log(e);
+    }
+  }
+
+  @Cron('0 30 23 * * *', {
+    name: 'team_distribution',
+    timeZone: 'Europe/Paris',
+  })
+  async distributeToTheTeam() {
+    console.log('Distribution for the team in progress...');
+    const team_members = ['9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ'];
+    const connection = new Connection(process.env.RPC_ENDPOINT);
+    const savedTimestamp = new Date().getTime();
+
+    const teamWallet = Keypair.fromSecretKey(
+      new Uint8Array(bs58.decode(process.env.CRYPTOLOTTO_TEAM)),
+    );
+
+    const team_ATA = await getAssociatedTokenAccount(
+      connection,
+      teamWallet,
+      new PublicKey(process.env.TEAM_PUBLICKEY),
+    );
+
+    const team_USDC_balance = Number(team_ATA.amount) / 1e6;
+
+    if (team_USDC_balance > 0) {
+      let amount_for_treasury = (8 * team_USDC_balance) / 100;
+
+      for (const member of team_members) {
+        try {
+          const member_ATA = await getAssociatedTokenAccount(
+            connection,
+            teamWallet,
+            new PublicKey(member),
+          );
+
+          const amount_to_transfer =
+            team_USDC_balance - (8 * team_USDC_balance) / 100;
+          let amount_for_member = amount_to_transfer / team_members.length;
+
+          if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
+            amount_for_member = Number(
+              parseFloat(String(amount_for_member)).toPrecision(7),
+            );
+          }
+
+          const transferTrx = new Transaction().add(
+            createTransferInstruction(
+              team_ATA.address,
+              member_ATA.address,
+              teamWallet.publicKey,
+              amount_for_member * 1e6,
+            ),
+          );
+
+          const txid = await sendAndConfirmTransaction(
+            connection,
+            transferTrx,
+            [teamWallet],
+            { commitment: 'finalized' },
+          );
+
+          const saveMemberDistribution: SaveMemberCreationType = {
+            type: 'member',
+            wallet: member,
+            status: 'distributed',
+            amount_distributed: amount_for_member,
+            distribution_transaction_id: txid,
+            distribution_date: savedTimestamp,
+          };
+
+          const TeamDistribution = new this.teamModel(saveMemberDistribution);
+          TeamDistribution.save();
+        } catch (e) {
+          const saveMemberDistributionError: SaveMemberCreationType = {
+            type: 'member',
+            wallet: member,
+            status: 'error',
+            amount_distributed: 0,
+            distribution_transaction_id: 'No transaction',
+            distribution_date: savedTimestamp,
+            error_message: e.message,
+          };
+
+          const TeamDistribution = new this.teamModel(
+            saveMemberDistributionError,
+          );
+          TeamDistribution.save();
+        }
+      }
+
+      try {
+        const treasury_ATA = await getAssociatedTokenAccount(
+          connection,
+          teamWallet,
+          new PublicKey(process.env.TREASURY_PUBLICKEY),
+        );
+
+        if (decimalCount(parseFloat(String(amount_for_treasury)) * 1e6) > 0) {
+          amount_for_treasury = Number(
+            parseFloat(String(amount_for_treasury)).toPrecision(7),
+          );
+        }
+
+        const transferTrx = new Transaction().add(
+          createTransferInstruction(
+            team_ATA.address,
+            treasury_ATA.address,
+            teamWallet.publicKey,
+            amount_for_treasury * 1e6,
+          ),
+        );
+
+        const txid = await sendAndConfirmTransaction(
+          connection,
+          transferTrx,
+          [teamWallet],
+          { commitment: 'finalized' },
+        );
+
+        const saveMemberDistribution: SaveMemberCreationType = {
+          type: 'treasury',
+          wallet: process.env.TREASURY_PUBLICKEY,
+          status: 'distributed',
+          amount_distributed: amount_for_treasury,
+          distribution_transaction_id: txid,
+          distribution_date: savedTimestamp,
+        };
+
+        const TeamDistribution = new this.teamModel(saveMemberDistribution);
+        TeamDistribution.save();
+        console.log('Distribution for the team finished!');
+      } catch (e) {
+        const saveMemberDistributionError: SaveMemberCreationType = {
+          type: 'treasury',
+          wallet: process.env.TREASURY_PUBLICKEY,
+          status: 'error',
+          amount_distributed: 0,
+          distribution_transaction_id: 'No transaction',
+          distribution_date: savedTimestamp,
+          error_message: e.message,
+        };
+
+        const TeamDistribution = new this.teamModel(
+          saveMemberDistributionError,
+        );
+        TeamDistribution.save();
+      }
     }
   }
 }
@@ -535,4 +691,12 @@ const sendLotteriesWalletsInDiscord = async (
   await (
     client.channels.cache.get(process.env.DISCORD_CHANNEL_ID) as TextChannel
   ).send({ embeds: [embed] });
+};
+
+const decimalCount = (number) => {
+  const numberAsString = number.toString();
+  if (numberAsString.includes('.')) {
+    return numberAsString.split('.')[1].length;
+  }
+  return 0;
 };
