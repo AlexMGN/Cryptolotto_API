@@ -20,7 +20,7 @@ export class Lottery {
   @Prop({ required: true })
   token_account: string;
 
-  @Prop()
+  @Prop({ required: false })
   participations: {
     transaction_id: string;
     wallet: string;
@@ -31,22 +31,22 @@ export class Lottery {
   @Prop({ required: true })
   status: string;
 
-  @Prop()
+  @Prop({ required: false })
   amount_win: number;
 
-  @Prop()
+  @Prop({ required: false })
   team_part: number;
 
-  @Prop()
+  @Prop({ required: false })
   association_part: number;
 
-  @Prop()
+  @Prop({ required: false })
   distribution_transaction_id: string;
 
-  @Prop()
+  @Prop({ required: false })
   distribution_date: number;
 
-  @Prop()
+  @Prop({ required: false })
   winner: string;
 }
 

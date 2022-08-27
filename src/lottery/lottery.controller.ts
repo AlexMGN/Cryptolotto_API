@@ -11,10 +11,10 @@ import { LotteryService } from './lottery.service';
 export class LotteryController {
   constructor(private readonly lotteryService: LotteryService) {}
 
-  /*@Get('/')
+  @Get('/')
   async test(@Param('slug') slug: string) {
     return this.lotteryService.getHello();
-  }*/
+  }
 
   @HttpCode(200)
   @Get('/all')
