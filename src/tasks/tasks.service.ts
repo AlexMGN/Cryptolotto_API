@@ -131,6 +131,7 @@ export class TasksService {
             }
           }
           await sendLotteriesWalletsInDiscord(this.client, lotteriesFields);
+          console.log('Distribution finished !...');
         } else {
           this.logger.log('Lotteries creation in progress...');
           const lotteriesFields = [];
