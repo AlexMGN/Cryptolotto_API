@@ -38,7 +38,7 @@ export class LotteryService {
 
   async getHello() {
     // Création + Distribution
-    /*const creationTimestamp = new Date().getTime();
+    const creationTimestamp = new Date().getTime();
     const web3Timestamp = new anchor.BN(creationTimestamp);
     const bufferedTimestamp = web3Timestamp.toBuffer('be', 8);
     const connection = new Connection(process.env.RPC_ENDPOINT);
@@ -74,7 +74,7 @@ export class LotteryService {
                 this.lotteryModel,
                 lotteries[i],
                 'distribution',
-                'closed',
+                'distributed',
               );
 
               const lotteryToBeCreated: LotteryCreationType =
@@ -93,6 +93,11 @@ export class LotteryService {
                 value: lotteryToBeCreated.pda,
               });
             } else {
+              const getOldTimestamp = await this.lotteryModel.findOne({
+                slug: lotteries[i],
+                status: 'distribution',
+              });
+
               await this.lotteryModel
                 .updateOne(
                   {
@@ -102,6 +107,9 @@ export class LotteryService {
                   {
                     $set: {
                       timestamp,
+                      extension_timestamp: getOldTimestamp.extension_timestamp
+                        ? getOldTimestamp.extension_timestamp
+                        : getOldTimestamp.timestamp,
                       status: 'opened',
                     },
                   },
@@ -158,15 +166,20 @@ export class LotteryService {
       }
     } catch (e) {
       console.log(e);
-    }*/
-    // Push nouvelle participations
-    /**/
+    }
   }
 
-  async findLottery(slug: string): Promise<LotteryDocument | null> {
+  async findAllLotteries(): Promise<LotteryDocument[] | null> {
+    const lotteries = await this.lotteryModel.find({}, ['-_id'].join(' '));
+
+    return lotteries ? lotteries : null;
+  }
+
+  async findOpenedLottery(slug: string): Promise<LotteryDocument | null> {
     const lottery = await this.lotteryModel.findOne(
       {
         slug,
+        status: 'opened',
       },
       ['-_id'].join(' '),
     );
@@ -203,14 +216,19 @@ export class LotteryService {
     wallet: string,
     amount: number,
   ): Promise<any> {
+    const lottery = await this.findOpenedLottery(slug);
+
+    if (lottery.status !== 'opened') {
+      throw new Error(
+        "You can't participate to this lottery because she is not opened",
+      );
+    }
+
     const cryptolottoWallet = Keypair.fromSecretKey(
       new Uint8Array(bs58.decode(process.env.CRYPTOLOTTO)),
     );
     const connection = new anchor.web3.Connection(process.env.RPC_ENDPOINT);
-
     const program = await getProgram(new Wallet(cryptolottoWallet), connection);
-
-    const lottery = await this.findLottery(slug);
 
     const Lottery_USDC_ATA = await getOrCreateAssociatedTokenAccount(
       connection,
@@ -252,7 +270,7 @@ export class LotteryService {
     txid: string,
   ): Promise<any> {
     try {
-      const lottery = await this.findLottery(slug);
+      const lottery = await this.findOpenedLottery(slug);
 
       return await this.lotteryModel.updateOne(
         {
@@ -276,13 +294,7 @@ export class LotteryService {
 
   async getParticipations(slug: string, wallet: string): Promise<number> {
     try {
-      const lottery = await this.findLottery(slug);
-
-      if (lottery.status !== 'opened') {
-        throw new Error(
-          "You can't participate to this loterry because she is not opened",
-        );
-      }
+      const lottery = await this.findOpenedLottery(slug);
 
       let userParticipations = 0;
 
@@ -341,7 +353,14 @@ const selectWinnerAndDistributeLottery = async (
   }
 
   try {
-    const web3Timestamp = new anchor.BN(lottery.timestamp);
+    let web3Timestamp;
+
+    if (lottery.extension_timestamp) {
+      web3Timestamp = new anchor.BN(lottery.extension_timestamp);
+    } else {
+      web3Timestamp = new anchor.BN(lottery.timestamp);
+    }
+
     const bufferedTimestamp = web3Timestamp.toBuffer('be', 8);
 
     const participantsBeforeShuffle: string[] = [];
@@ -466,6 +485,7 @@ const selectWinnerAndDistributeLottery = async (
               100,
             distribution_transaction_id,
             distribution_date: new Date().getTime(),
+            winner: winner.toString(),
           },
         },
       )

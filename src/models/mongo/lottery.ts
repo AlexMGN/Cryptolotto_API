@@ -11,6 +11,9 @@ export class Lottery {
   @Prop({ required: true })
   timestamp: number;
 
+  @Prop({ required: false })
+  extension_timestamp: number;
+
   @Prop({ required: true })
   pda: string;
 
@@ -42,6 +45,9 @@ export class Lottery {
 
   @Prop()
   distribution_date: number;
+
+  @Prop()
+  winner: string;
 }
 
 export const LotterySchema = SchemaFactory.createForClass(Lottery);
