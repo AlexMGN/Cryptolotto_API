@@ -49,7 +49,7 @@ export class TasksService {
     private readonly client: Discord.Client,
   ) {}
   // 8h: '0 0 8 * * *'
-  @Cron('0 0 23 * * *', {
+  @Cron('0 0 1 * * *', {
     name: 'distribute_and_create_lotteries',
     timeZone: 'Europe/Paris',
   })
@@ -186,7 +186,7 @@ export class TasksService {
     }
   }
 
-  @Cron('0 30 23 * * *', {
+  @Cron('0 30 1 * * *', {
     name: 'team_distribution',
     timeZone: 'Europe/Paris',
   })
