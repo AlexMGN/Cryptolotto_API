@@ -47,7 +47,7 @@ export class LotteryService {
     this.logger.debug('🤖 Bot connected to Discord server');
   }
 
-  async getHello() {
+  async getKaffeine() {
     /*// Création + Distribution
     const creationTimestamp = new Date().getTime();
     const web3Timestamp = new anchor.BN(creationTimestamp);
@@ -178,7 +178,7 @@ export class LotteryService {
     } catch (e) {
       console.log(e);
     }*/
-    console.log('Distribution for the team in progress...');
+    /*console.log('Distribution for the team in progress...');
     const team_members = [
       {
         wallet: '9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ',
@@ -331,7 +331,8 @@ export class LotteryService {
         const test = TeamDistribution.save();
         console.log('Distribution for the team finished with error...');
       }
-    }
+    }*/
+    return 'Route to the anti sleep Heroku by taking a dose of kaffeine. Nothing to see here';
   }
 
   async findAllLotteries(): Promise<LotteryDocument[] | null> {
