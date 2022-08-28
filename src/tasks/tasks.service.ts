@@ -192,7 +192,12 @@ export class TasksService {
   })
   async distributeToTheTeam() {
     console.log('Distribution for the team in progress...');
-    const team_members = ['9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ'];
+    const team_members = [
+      {
+        wallet: '9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ',
+        gain: 3,
+      },
+    ];
     const connection = new Connection(process.env.RPC_ENDPOINT);
     const savedTimestamp = new Date().getTime();
 
@@ -208,58 +213,55 @@ export class TasksService {
 
     const team_USDC_balance = Number(team_ATA.amount) / 1e6;
 
-    if (team_USDC_balance > 0) {
-      let amount_for_treasury = (8 * team_USDC_balance) / 100;
+    for (const member of team_members) {
+      try {
+        const member_ATA = await getAssociatedTokenAccount(
+          connection,
+          teamWallet,
+          new PublicKey(member.wallet),
+        );
 
-      for (const member of team_members) {
-        try {
-          const member_ATA = await getAssociatedTokenAccount(
-            connection,
-            teamWallet,
-            new PublicKey(member),
+        const amount_to_transfer = (member.gain * team_USDC_balance) / 100;
+        let amount_for_member = amount_to_transfer / team_members.length;
+
+        if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
+          amount_for_member = Number(
+            parseFloat(String(amount_for_member)).toPrecision(7),
           );
+        }
 
-          const amount_to_transfer =
-            team_USDC_balance - (8 * team_USDC_balance) / 100;
-          let amount_for_member = amount_to_transfer / team_members.length;
+        const transferTrx = new Transaction().add(
+          createTransferInstruction(
+            team_ATA.address,
+            member_ATA.address,
+            teamWallet.publicKey,
+            amount_for_member * 1e6,
+          ),
+        );
 
-          if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
-            amount_for_member = Number(
-              parseFloat(String(amount_for_member)).toPrecision(7),
-            );
-          }
+        const txid = await sendAndConfirmTransaction(
+          connection,
+          transferTrx,
+          [teamWallet],
+          { commitment: 'finalized' },
+        );
 
-          const transferTrx = new Transaction().add(
-            createTransferInstruction(
-              team_ATA.address,
-              member_ATA.address,
-              teamWallet.publicKey,
-              amount_for_member * 1e6,
-            ),
-          );
+        const saveMemberDistribution: SaveMemberCreationType = {
+          type: 'member',
+          wallet: member.wallet,
+          status: 'distributed',
+          amount_distributed: amount_for_member,
+          distribution_transaction_id: txid,
+          distribution_date: savedTimestamp,
+        };
 
-          const txid = await sendAndConfirmTransaction(
-            connection,
-            transferTrx,
-            [teamWallet],
-            { commitment: 'finalized' },
-          );
-
-          const saveMemberDistribution: SaveMemberCreationType = {
-            type: 'member',
-            wallet: member,
-            status: 'distributed',
-            amount_distributed: amount_for_member,
-            distribution_transaction_id: txid,
-            distribution_date: savedTimestamp,
-          };
-
-          const TeamDistribution = new this.teamModel(saveMemberDistribution);
-          TeamDistribution.save();
-        } catch (e) {
+        const TeamDistribution = new this.teamModel(saveMemberDistribution);
+        TeamDistribution.save();
+      } catch (e) {
+        if (e) {
           const saveMemberDistributionError: SaveMemberCreationType = {
             type: 'member',
-            wallet: member,
+            wallet: member.wallet,
             status: 'error',
             amount_distributed: 0,
             distribution_transaction_id: 'No transaction',
@@ -273,49 +275,59 @@ export class TasksService {
           TeamDistribution.save();
         }
       }
+    }
 
-      try {
-        const treasury_ATA = await getAssociatedTokenAccount(
-          connection,
-          teamWallet,
-          new PublicKey(process.env.TREASURY_PUBLICKEY),
+    try {
+      const team_ATA_with_new_sold = await getAssociatedTokenAccount(
+        connection,
+        teamWallet,
+        new PublicKey(process.env.TEAM_PUBLICKEY),
+      );
+
+      let new_team_USDC_balance = Number(team_ATA_with_new_sold.amount) / 1e6;
+
+      const treasury_ATA = await getAssociatedTokenAccount(
+        connection,
+        teamWallet,
+        new PublicKey(process.env.TREASURY_PUBLICKEY),
+      );
+
+      if (decimalCount(parseFloat(String(new_team_USDC_balance)) * 1e6) > 0) {
+        new_team_USDC_balance = Number(
+          parseFloat(String(new_team_USDC_balance)).toPrecision(7),
         );
+      }
 
-        if (decimalCount(parseFloat(String(amount_for_treasury)) * 1e6) > 0) {
-          amount_for_treasury = Number(
-            parseFloat(String(amount_for_treasury)).toPrecision(7),
-          );
-        }
+      const transferTrx = new Transaction().add(
+        createTransferInstruction(
+          team_ATA.address,
+          treasury_ATA.address,
+          teamWallet.publicKey,
+          new_team_USDC_balance * 1e6,
+        ),
+      );
 
-        const transferTrx = new Transaction().add(
-          createTransferInstruction(
-            team_ATA.address,
-            treasury_ATA.address,
-            teamWallet.publicKey,
-            amount_for_treasury * 1e6,
-          ),
-        );
+      const txid = await sendAndConfirmTransaction(
+        connection,
+        transferTrx,
+        [teamWallet],
+        { commitment: 'finalized' },
+      );
 
-        const txid = await sendAndConfirmTransaction(
-          connection,
-          transferTrx,
-          [teamWallet],
-          { commitment: 'finalized' },
-        );
+      const saveMemberDistribution: SaveMemberCreationType = {
+        type: 'treasury',
+        wallet: process.env.TREASURY_PUBLICKEY,
+        status: 'distributed',
+        amount_distributed: new_team_USDC_balance,
+        distribution_transaction_id: txid,
+        distribution_date: savedTimestamp,
+      };
 
-        const saveMemberDistribution: SaveMemberCreationType = {
-          type: 'treasury',
-          wallet: process.env.TREASURY_PUBLICKEY,
-          status: 'distributed',
-          amount_distributed: amount_for_treasury,
-          distribution_transaction_id: txid,
-          distribution_date: savedTimestamp,
-        };
-
-        const TeamDistribution = new this.teamModel(saveMemberDistribution);
-        TeamDistribution.save();
-        console.log('Distribution for the team finished!');
-      } catch (e) {
+      const TeamDistribution = new this.teamModel(saveMemberDistribution);
+      TeamDistribution.save();
+      console.log('Distribution for the team finished!');
+    } catch (e) {
+      if (e) {
         const saveMemberDistributionError: SaveMemberCreationType = {
           type: 'treasury',
           wallet: process.env.TREASURY_PUBLICKEY,
@@ -330,6 +342,7 @@ export class TasksService {
           saveMemberDistributionError,
         );
         TeamDistribution.save();
+        console.log('Distribution for the team finished with error...');
       }
     }
   }
