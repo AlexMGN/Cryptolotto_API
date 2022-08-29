@@ -58,7 +58,8 @@ export class TasksService {
     const web3Timestamp = new anchor.BN(creationTimestamp);
     const bufferedTimestamp = web3Timestamp.toBuffer('be', 8);
     const connection = new Connection(process.env.RPC_ENDPOINT);
-    const lotteries = ['low', 'medium', 'degen', 'whale'];
+    //const lotteries = ['low', 'medium', 'degen', 'whale'];
+    const lotteries = ['low', 'degen'];
     const openedLotteries = await this.lotteryModel.find({ status: 'opened' });
 
     const createOrDistributeLotteries = async (
