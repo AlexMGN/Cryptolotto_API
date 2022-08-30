@@ -28,6 +28,16 @@ export class LotteryController {
   }
 
   @HttpCode(200)
+  @Get('/donations/all')
+  async allDonations() {
+    const donations = await this.lotteryService.findAllDonations();
+
+    if (!donations)
+      throw new HttpException({ errors: ['Donations not found'] }, 404);
+    return donations;
+  }
+
+  @HttpCode(200)
   @Get('/:slug')
   async details(@Param('slug') slug: string) {
     const lottery = await this.lotteryService.findOpenedLottery(slug);

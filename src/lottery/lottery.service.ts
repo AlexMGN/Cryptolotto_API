@@ -48,12 +48,13 @@ export class LotteryService {
   }
 
   async getKaffeine() {
-    /*// Création + Distribution
-    const creationTimestamp = new Date().getTime();
+    // Création + Distribution
+    /*const creationTimestamp = new Date().getTime();
     const web3Timestamp = new anchor.BN(creationTimestamp);
     const bufferedTimestamp = web3Timestamp.toBuffer('be', 8);
     const connection = new Connection(process.env.RPC_ENDPOINT);
-    const lotteries = ['low', 'medium', 'degen', 'whale'];
+    //const lotteries = ['low', 'medium', 'degen', 'whale'];
+    const lotteries = ['low', 'medium'];
     const openedLotteries = await this.lotteryModel.find({ status: 'opened' });
 
     const createOrDistributeLotteries = async (
@@ -134,6 +135,7 @@ export class LotteryService {
             }
           }
           await sendLotteriesWalletsInDiscord(this.client, lotteriesFields);
+          console.log('Distribution finished !...');
         } else {
           this.logger.log('Lotteries creation in progress...');
           const lotteriesFields = [];
@@ -178,7 +180,11 @@ export class LotteryService {
     } catch (e) {
       console.log(e);
     }*/
-    /*console.log('Distribution for the team in progress...');
+    console.log('Distribution for the team in progress...');
+    const distributedLotteries = await this.lotteryModel.find({
+      status: 'distributed',
+    });
+
     const team_members = [
       {
         wallet: '9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ',
@@ -200,145 +206,161 @@ export class LotteryService {
 
     const team_USDC_balance = Number(team_ATA.amount) / 1e6;
 
-    for (const member of team_members) {
+    if (team_USDC_balance > 0) {
+      for (const distributed of distributedLotteries) {
+        try {
+          const association_ATA = await getAssociatedTokenAccount(
+            connection,
+            teamWallet,
+            new PublicKey(process.env.ASSOCIATION_PUBLICKEY),
+          );
+
+          const memberDistributed =
+            await withdrawUSDCToAccountFromCryptolottoTeamAccount(
+              connection,
+              team_ATA.address,
+              association_ATA.address,
+              teamWallet,
+              distributed.association_part,
+              'association',
+              process.env.ASSOCIATION_PUBLICKEY,
+              savedTimestamp,
+            );
+
+          const TeamDistribution = new this.teamModel(memberDistributed);
+          TeamDistribution.save();
+
+          await this.lotteryModel
+            .updateOne(
+              {
+                id: distributed.id,
+              },
+              {
+                $set: {
+                  status: 'finalized',
+                },
+              },
+            )
+            .exec();
+        } catch (e) {
+          await saveMemberDistributionError(
+            'association',
+            process.env.ASSOCIATION_PUBLICKEY,
+            savedTimestamp,
+            e.message,
+            this.teamModel,
+          );
+        }
+      }
+
+      for (const member of team_members) {
+        try {
+          const member_ATA = await getAssociatedTokenAccount(
+            connection,
+            teamWallet,
+            new PublicKey(member.wallet),
+          );
+
+          const amount_to_transfer = (member.gain * team_USDC_balance) / 100;
+          let amount_for_member = amount_to_transfer / team_members.length;
+
+          if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
+            amount_for_member = Number(
+              parseFloat(String(amount_for_member)).toPrecision(7),
+            );
+          }
+
+          const memberDistributed =
+            await withdrawUSDCToAccountFromCryptolottoTeamAccount(
+              connection,
+              team_ATA.address,
+              member_ATA.address,
+              teamWallet,
+              amount_for_member,
+              'member',
+              member.wallet,
+              savedTimestamp,
+            );
+
+          const TeamDistribution = new this.teamModel(memberDistributed);
+          TeamDistribution.save();
+        } catch (e) {
+          if (e) {
+            await saveMemberDistributionError(
+              'member',
+              member.wallet,
+              savedTimestamp,
+              e.message,
+              this.teamModel,
+            );
+          }
+        }
+      }
+
       try {
-        const member_ATA = await getAssociatedTokenAccount(
+        const team_ATA_with_new_sold = await getAssociatedTokenAccount(
           connection,
           teamWallet,
-          new PublicKey(member.wallet),
+          new PublicKey(process.env.TEAM_PUBLICKEY),
         );
 
-        const amount_to_transfer = (member.gain * team_USDC_balance) / 100;
-        let amount_for_member = amount_to_transfer / team_members.length;
+        let new_team_USDC_balance = Number(team_ATA_with_new_sold.amount) / 1e6;
 
-        if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
-          amount_for_member = Number(
-            parseFloat(String(amount_for_member)).toPrecision(7),
+        const treasury_ATA = await getAssociatedTokenAccount(
+          connection,
+          teamWallet,
+          new PublicKey(process.env.TREASURY_PUBLICKEY),
+        );
+
+        if (decimalCount(parseFloat(String(new_team_USDC_balance)) * 1e6) > 0) {
+          new_team_USDC_balance = Number(
+            parseFloat(String(new_team_USDC_balance)).toPrecision(7),
           );
         }
 
-        const transferTrx = new Transaction().add(
-          createTransferInstruction(
+        const memberDistributed =
+          await withdrawUSDCToAccountFromCryptolottoTeamAccount(
+            connection,
             team_ATA.address,
-            member_ATA.address,
-            teamWallet.publicKey,
-            amount_for_member * 1e6,
-          ),
-        );
+            treasury_ATA.address,
+            teamWallet,
+            new_team_USDC_balance,
+            'treasury',
+            process.env.TREASURY_PUBLICKEY,
+            savedTimestamp,
+          );
 
-        const txid = await sendAndConfirmTransaction(
-          connection,
-          transferTrx,
-          [teamWallet],
-          { commitment: 'finalized' },
-        );
-
-        const saveMemberDistribution: SaveMemberCreationType = {
-          type: 'member',
-          wallet: member.wallet,
-          status: 'distributed',
-          amount_distributed: amount_for_member,
-          distribution_transaction_id: txid,
-          distribution_date: savedTimestamp,
-        };
-
-        const TeamDistribution = new this.teamModel(saveMemberDistribution);
+        const TeamDistribution = new this.teamModel(memberDistributed);
         TeamDistribution.save();
+        console.log('Distribution for the team finished!');
       } catch (e) {
         if (e) {
-          const saveMemberDistributionError: SaveMemberCreationType = {
-            type: 'member',
-            wallet: member.wallet,
-            status: 'error',
-            amount_distributed: 0,
-            distribution_transaction_id: 'No transaction',
-            distribution_date: savedTimestamp,
-            error_message: e.message,
-          };
-
-          const TeamDistribution = new this.teamModel(
-            saveMemberDistributionError,
+          await saveMemberDistributionError(
+            'treasury',
+            process.env.TREASURY_PUBLICKEY,
+            savedTimestamp,
+            e.message,
+            this.teamModel,
           );
-          TeamDistribution.save();
+          console.log('Distribution for the team finished with error...');
         }
       }
+    } else {
+      console.log('Distribution for the team finished! Nothing to send');
     }
-
-    try {
-      const team_ATA_with_new_sold = await getAssociatedTokenAccount(
-        connection,
-        teamWallet,
-        new PublicKey(process.env.TEAM_PUBLICKEY),
-      );
-
-      let new_team_USDC_balance = Number(team_ATA_with_new_sold.amount) / 1e6;
-
-      const treasury_ATA = await getAssociatedTokenAccount(
-        connection,
-        teamWallet,
-        new PublicKey(process.env.TREASURY_PUBLICKEY),
-      );
-
-      if (decimalCount(parseFloat(String(new_team_USDC_balance)) * 1e6) > 0) {
-        new_team_USDC_balance = Number(
-          parseFloat(String(new_team_USDC_balance)).toPrecision(7),
-        );
-      }
-
-      const transferTrx = new Transaction().add(
-        createTransferInstruction(
-          team_ATA.address,
-          treasury_ATA.address,
-          teamWallet.publicKey,
-          new_team_USDC_balance * 1e6,
-        ),
-      );
-
-      const txid = await sendAndConfirmTransaction(
-        connection,
-        transferTrx,
-        [teamWallet],
-        { commitment: 'finalized' },
-      );
-
-      const saveMemberDistribution: SaveMemberCreationType = {
-        type: 'treasury',
-        wallet: process.env.TREASURY_PUBLICKEY,
-        status: 'distributed',
-        amount_distributed: new_team_USDC_balance,
-        distribution_transaction_id: txid,
-        distribution_date: savedTimestamp,
-      };
-
-      const TeamDistribution = new this.teamModel(saveMemberDistribution);
-      const test = TeamDistribution.save();
-      console.log('Distribution for the team finished...');
-    } catch (e) {
-      if (e) {
-        const saveMemberDistributionError: SaveMemberCreationType = {
-          type: 'treasury',
-          wallet: process.env.TREASURY_PUBLICKEY,
-          status: 'error',
-          amount_distributed: 0,
-          distribution_transaction_id: 'No transaction',
-          distribution_date: savedTimestamp,
-          error_message: e.message,
-        };
-
-        const TeamDistribution = new this.teamModel(
-          saveMemberDistributionError,
-        );
-        const test = TeamDistribution.save();
-        console.log('Distribution for the team finished with error...');
-      }
-    }*/
-    return 'Route to the anti sleep Heroku by taking a dose of kaffeine. Nothing to see here';
+    //return 'Route to the anti sleep Heroku by taking a dose of kaffeine. Nothing to see here';
   }
 
   async findAllLotteries(): Promise<LotteryDocument[] | null> {
     const lotteries = await this.lotteryModel.find({}, ['-_id'].join(' '));
 
     return lotteries ? lotteries : null;
+  }
+
+  async findAllDonations(): Promise<TeamDocument[] | null> {
+    const donations = await this.teamModel.find({ type: 'association', status: 'distributed' }, ['-_id'].join(' '));
+
+    return donations ? donations : null;
   }
 
   async findOpenedLottery(slug: string): Promise<LotteryDocument | null> {
@@ -657,7 +679,7 @@ const selectWinnerAndDistributeLottery = async (
       )
       .exec();
   } catch (e) {
-    throw new Error(e.message);
+    throw new Error(e);
   }
 };
 
@@ -846,4 +868,63 @@ const decimalCount = (number) => {
     return numberAsString.split('.')[1].length;
   }
   return 0;
+};
+
+const withdrawUSDCToAccountFromCryptolottoTeamAccount = async (
+  connection: Connection,
+  source_ATA: PublicKey,
+  destination_ATA: PublicKey,
+  owner: Signer,
+  amount: number,
+  type: string,
+  wallet: string,
+  savedTimestamp: number,
+) => {
+  const transferTrx = new Transaction().add(
+    createTransferInstruction(
+      source_ATA,
+      destination_ATA,
+      owner.publicKey,
+      amount * 1e6,
+    ),
+  );
+
+  const txid = await sendAndConfirmTransaction(
+    connection,
+    transferTrx,
+    [owner],
+    { commitment: 'finalized' },
+  );
+
+  const saveMemberDistribution: SaveMemberCreationType = {
+    type,
+    wallet,
+    status: 'distributed',
+    amount_distributed: amount,
+    distribution_transaction_id: txid,
+    distribution_date: savedTimestamp,
+  };
+
+  return saveMemberDistribution;
+};
+
+const saveMemberDistributionError = async (
+  type: string,
+  wallet: string,
+  savedTimestamp: number,
+  message: string,
+  teamModel: Model<TeamDocument>,
+) => {
+  const saveMemberDistributionError: SaveMemberCreationType = {
+    type,
+    wallet,
+    status: 'error',
+    amount_distributed: 0,
+    distribution_transaction_id: 'No transaction',
+    distribution_date: savedTimestamp,
+    error_message: message,
+  };
+
+  const TeamDistribution = new teamModel(saveMemberDistributionError);
+  TeamDistribution.save();
 };
