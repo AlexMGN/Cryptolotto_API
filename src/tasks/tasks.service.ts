@@ -434,7 +434,7 @@ const selectWinnerAndDistributeLottery = async (
 
     let shuffledParticipants;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1000; i++) {
       shuffledParticipants = shuffle(participantsBeforeShuffle);
     }
 
