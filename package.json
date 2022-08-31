@@ -21,7 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "engines": {
-    "node": "16.13.0"
+    "node": "^16.13.0"
   },
   "dependencies": {
     "@discord-nestjs/core": "^3.6.0",
