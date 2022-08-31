@@ -48,7 +48,7 @@ export class TasksService {
     @InjectDiscordClient()
     private readonly client: Discord.Client,
   ) {}
-  // 8h: '0 0 8 * * *'
+
   @Cron('0 0 8 * * *', {
     name: 'distribute_and_create_lotteries',
     timeZone: 'Europe/Paris',
@@ -79,9 +79,14 @@ export class TasksService {
               'distribution',
             );
 
-            if (openedLotteries[i].participations.length > 0) {
+            const lotteryInDistribution = await this.lotteryModel.findOne({
+              slug: lotteries[i],
+              status: 'distribution',
+            });
+
+            if (lotteryInDistribution.participations.length > 0) {
               await selectWinnerAndDistributeLottery(
-                openedLotteries[i],
+                lotteryInDistribution,
                 connection,
                 0,
                 this.lotteryModel,
@@ -89,14 +94,14 @@ export class TasksService {
 
               await updateLotteryStatus(
                 this.lotteryModel,
-                lotteries[i],
+                lotteryInDistribution.slug,
                 'distribution',
                 'distributed',
               );
 
               const lotteryToBeCreated: LotteryCreationType =
                 await createLottery(
-                  openedLotteries[i].slug,
+                  lotteryInDistribution.slug,
                   creationTimestamp,
                   bufferedTimestamp,
                   connection,
@@ -246,12 +251,14 @@ export class TasksService {
             .updateOne(
               {
                 id: distributed.id,
+                status: 'distributed',
               },
               {
                 $set: {
                   status: 'finalized',
                 },
               },
+              { upsert: false },
             )
             .exec();
         } catch (e) {
