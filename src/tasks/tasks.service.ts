@@ -84,7 +84,7 @@ export class TasksService {
               status: 'distribution',
             });
 
-            if (lotteryInDistribution.participations.length > 0) {
+            if (lotteryInDistribution.participations.length > 1) {
               await selectWinnerAndDistributeLottery(
                 lotteryInDistribution,
                 connection,
