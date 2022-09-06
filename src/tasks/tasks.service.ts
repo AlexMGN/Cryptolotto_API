@@ -84,7 +84,11 @@ export class TasksService {
               status: 'distribution',
             });
 
-            if (lotteryInDistribution.participations.length > 1) {
+            const participants = lotteryInDistribution.participations.filter(
+              (v, i, a) => a.findIndex((v2) => v2.wallet === v.wallet) === i,
+            );
+
+            if (participants.length > 1) {
               await selectWinnerAndDistributeLottery(
                 lotteryInDistribution,
                 connection,
