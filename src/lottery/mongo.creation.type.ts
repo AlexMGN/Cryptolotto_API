@@ -1,5 +1,3 @@
-import { Prop } from "@nestjs/mongoose";
-
 export interface LotteryCreationType {
   slug: string;
   timestamp: number;

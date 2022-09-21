@@ -11,9 +11,10 @@ import { LotteryService } from './lottery.service';
 export class LotteryController {
   constructor(private readonly lotteryService: LotteryService) {}
 
+  @HttpCode(200)
   @Get('/')
-  async test(@Param('slug') slug: string) {
-    return this.lotteryService.getHello();
+  async kaffeine() {
+    return this.lotteryService.getKaffeine();
   }
 
   @HttpCode(200)
@@ -24,6 +25,16 @@ export class LotteryController {
     if (!lotteries)
       throw new HttpException({ errors: ['Lotteries not found'] }, 404);
     return lotteries;
+  }
+
+  @HttpCode(200)
+  @Get('/donations/all')
+  async allDonations() {
+    const donations = await this.lotteryService.findAllDonations();
+
+    if (!donations)
+      throw new HttpException({ errors: ['Donations not found'] }, 404);
+    return donations;
   }
 
   @HttpCode(200)
