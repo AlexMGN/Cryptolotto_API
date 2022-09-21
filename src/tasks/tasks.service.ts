@@ -208,7 +208,7 @@ export class TasksService {
 
     const team_members = [
       {
-        wallet: '9145ttu78U55JtCZLgomQWWXzQP96pZkjcE2ehkMsEbQ',
+        wallet: '9nK6cfPLRcnQeHW2Y78bdh7ZHdT9UpzBvHgqGJf6ad63',
         gain: 3,
       },
     ];
