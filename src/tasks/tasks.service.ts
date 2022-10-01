@@ -250,6 +250,7 @@ export class TasksService {
 
           const TeamDistribution = new this.teamModel(memberDistributed);
           TeamDistribution.save();
+          console.log('Distribution for the association finished!');
 
           await this.lotteryModel
             .updateOne(
@@ -307,6 +308,7 @@ export class TasksService {
 
           const TeamDistribution = new this.teamModel(memberDistributed);
           TeamDistribution.save();
+          console.log('Distribution for members finished!');
         } catch (e) {
           if (e) {
             await saveMemberDistributionError(
@@ -355,6 +357,7 @@ export class TasksService {
 
         const TeamDistribution = new this.teamModel(memberDistributed);
         TeamDistribution.save();
+        console.log('Distribution for the treasury finished!');
         console.log('Distribution for the team finished!');
       } catch (e) {
         if (e) {
