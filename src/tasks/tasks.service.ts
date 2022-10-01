@@ -116,7 +116,7 @@ export class TasksService {
 
               lotteriesFields.push({
                 name: lotteryToBeCreated.slug.toUpperCase() + ' (Nouvelle)',
-                value: lotteryToBeCreated.pda,
+                value: lotteryToBeCreated.token_account,
               });
             } else {
               const getOldTimestamp = await this.lotteryModel.findOne({
@@ -144,7 +144,7 @@ export class TasksService {
 
               lotteriesFields.push({
                 name: openedLotteries[i].slug.toUpperCase() + ' (Prolongée)',
-                value: openedLotteries[i].pda,
+                value: openedLotteries[i].token_account,
               });
             }
           }
@@ -171,7 +171,7 @@ export class TasksService {
 
             lotteriesFields.push({
               name: lotteryToBeCreated.slug.toUpperCase() + ' (Nouvelle)',
-              value: lotteryToBeCreated.pda,
+              value: lotteryToBeCreated.token_account,
             });
           }
 
