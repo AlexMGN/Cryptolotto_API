@@ -127,7 +127,7 @@ export class LotteryService {
       })
       .transaction();
 
-    const { blockhash } = await connection.getLatestBlockhash('finalized');
+    const { blockhash } = await connection.getLatestBlockhash('confirmed');
 
     tx.recentBlockhash = blockhash;
     tx.feePayer = new PublicKey(wallet);
