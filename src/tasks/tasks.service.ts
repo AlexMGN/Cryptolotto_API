@@ -504,7 +504,7 @@ const selectWinnerAndDistributeLottery = async (
       distribution_transaction_id,
       60000,
       connection,
-      'finalized',
+      'confirmed',
     );
 
     if (!confirmation)
@@ -757,7 +757,7 @@ const withdrawUSDCToAccountFromCryptolottoTeamAccount = async (
     connection,
     transferTrx,
     [owner],
-    { commitment: 'finalized' },
+    { commitment: 'confirmed' },
   );
 
   const saveMemberDistribution: SaveMemberCreationType = {
