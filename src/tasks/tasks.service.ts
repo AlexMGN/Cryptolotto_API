@@ -196,7 +196,7 @@ export class TasksService {
     }
   }
 
-  @Cron('0 30 8 * * *', {
+  @Cron('0 29 3 * * *', {
     name: 'team_distribution',
     timeZone: 'Europe/Paris',
   })
@@ -236,7 +236,7 @@ export class TasksService {
             new PublicKey(process.env.ASSOCIATION_PUBLICKEY),
           );
 
-          const memberDistributed =
+          const associationDistributed =
             await withdrawUSDCToAccountFromCryptolottoTeamAccount(
               connection,
               team_ATA.address,
@@ -248,7 +248,7 @@ export class TasksService {
               savedTimestamp,
             );
 
-          const TeamDistribution = new this.teamModel(memberDistributed);
+          const TeamDistribution = new this.teamModel(associationDistributed);
           TeamDistribution.save();
           console.log('Distribution for the association finished!');
 
@@ -285,8 +285,16 @@ export class TasksService {
             new PublicKey(member.wallet),
           );
 
-          const amount_to_transfer = (member.gain * team_USDC_balance) / 100;
-          let amount_for_member = amount_to_transfer / team_members.length;
+          const team_ATA_after_association_transfer = await getAssociatedTokenAccount(
+            connection,
+            teamWallet,
+            new PublicKey(process.env.TEAM_PUBLICKEY),
+          );
+
+          const team_USDC_balance_after_association_transfer = Number(team_ATA_after_association_transfer.amount) / 1e6;
+
+          const amount_to_transfer_for_member = (member.gain * team_USDC_balance_after_association_transfer) / 100;
+          let amount_for_member = amount_to_transfer_for_member / team_members.length;
 
           if (decimalCount(parseFloat(String(amount_for_member)) * 1e6) > 0) {
             amount_for_member = Number(
@@ -504,7 +512,7 @@ const selectWinnerAndDistributeLottery = async (
       distribution_transaction_id,
       60000,
       connection,
-      'confirmed',
+      'finalized',
     );
 
     if (!confirmation)
@@ -757,7 +765,7 @@ const withdrawUSDCToAccountFromCryptolottoTeamAccount = async (
     connection,
     transferTrx,
     [owner],
-    { commitment: 'confirmed' },
+    { commitment: 'finalized' },
   );
 
   const saveMemberDistribution: SaveMemberCreationType = {
