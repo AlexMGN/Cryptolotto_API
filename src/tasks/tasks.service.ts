@@ -196,7 +196,7 @@ export class TasksService {
     }
   }
 
-  @Cron('0 29 3 * * *', {
+  @Cron('0 0 8 * * *', {
     name: 'team_distribution',
     timeZone: 'Europe/Paris',
   })
